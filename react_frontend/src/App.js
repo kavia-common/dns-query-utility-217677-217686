@@ -1,49 +1,89 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
+import React, { useEffect, useMemo, useState } from 'react';
 import './App.css';
+import { applyThemeCssVars } from './theme/oceanTheme';
+import NavBar from './components/NavBar';
+import Footer from './components/Footer';
+import Sidebar from './components/Sidebar';
+import ConfigForm from './components/ConfigForm';
+import CodePreview from './components/CodePreview';
+import { generateCSource } from './utils/cCodeGenerator';
 
 // PUBLIC_INTERFACE
 function App() {
-  const [theme, setTheme] = useState('light');
+  /** Root application; manages state and live code generation. */
+  const [values, setValues] = useState({
+    domain: 'example.com',
+    dnsServer: '8.8.8.8',
+    iface: '',
+    qtype: 'A',
+    timeout: 3,
+    retries: 2,
+  });
 
-  // Effect to apply theme to document element
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    // Initialize theme variables regardless of .env; runs client-side only.
+    applyThemeCssVars();
+  }, []);
 
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
+  const code = useMemo(() => generateCSource({
+    domain: values.domain.trim() || 'example.com',
+    dnsServer: values.dnsServer.trim() || '8.8.8.8',
+    iface: values.iface.trim(),
+    qtype: values.qtype,
+    timeout: Math.max(1, Number(values.timeout || 1)),
+    retries: Math.max(0, Number(values.retries || 0)),
+  }), [values]);
+
+  const onReset = () =>
+    setValues({ domain: 'example.com', dnsServer: '8.8.8.8', iface: '', qtype: 'A', timeout: 3, retries: 2 });
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <button 
-          className="theme-toggle" 
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <p>
-          Current theme: <strong>{theme}</strong>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div style={styles.page}>
+      <NavBar />
+      <main style={styles.main}>
+        <div style={styles.content}>
+          <div style={styles.leftCol}>
+            <ConfigForm values={values} onChange={setValues} />
+            <div style={styles.spacer} />
+            <CodePreview code={code} />
+          </div>
+          <div style={styles.rightCol}>
+            <Sidebar values={values} onChange={setValues} onReset={onReset} />
+          </div>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 }
+
+const styles = {
+  page: {
+    minHeight: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  main: {
+    width: '100%',
+    padding: '16px',
+  },
+  content: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    display: 'grid',
+    gridTemplateColumns: '1fr 320px',
+    gap: 16,
+  },
+  leftCol: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+  },
+  rightCol: {
+    width: '100%',
+  },
+  spacer: { height: 4 },
+};
 
 export default App;
